@@ -5,23 +5,24 @@ const Topbar = () => {
   const { user, logout } = useContext(AuthContext);
   return (
     <div
+      className="topbar"
       style={{
         display: "flex",
         alignItems: "center",
         gap: 12,
         justifyContent: "space-between",
         padding: "12px 16px",
-        background: "#fff",
-        borderBottom: "1px solid #e5e7eb",
+        background: "var(--surface)",
+        borderBottom: "1px solid var(--border)",
       }}
     >
-      <div style={{ fontWeight: 600, color: "var(--color-primary)" }}>
+      <div style={{ fontWeight: 600, color: "var(--primary)" }}>
         Employee Onboarding
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span>{user ? user.name || user.email : "Guest"}</span>
         {user && (
-          <button className="btn" onClick={logout} aria-label="Logout">
+          <button className="btn btn-secondary" onClick={logout} aria-label="Logout">
             Logout
           </button>
         )}
