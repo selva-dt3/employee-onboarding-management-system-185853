@@ -1,0 +1,4 @@
+{
+    "command": "npm install",
+    "working_directory": "/home/kavia/workspace/code-generation/employee-onboarding-management-system-185853/employee_onboarding_frontend"
+}
