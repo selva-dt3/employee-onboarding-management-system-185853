@@ -7,6 +7,7 @@ const endpoints = {
     me: "/auth/me",
     logout: "/auth/logout",
     forgotPassword: "/auth/forgot-password",
+    refresh: "/auth/refresh",
   },
   users: {
     root: "/users",

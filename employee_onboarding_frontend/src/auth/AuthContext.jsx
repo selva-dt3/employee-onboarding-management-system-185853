@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import api from "../api/axios";
+import api, { setAccessToken } from "../api/axios";
 import endpoints from "../api/endpoints";
 
 // PUBLIC_INTERFACE
@@ -23,7 +23,7 @@ export const AuthContext = createContext({
 // PUBLIC_INTERFACE
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => {
+  const [token, setTokenState] = useState(() => {
     try {
       return localStorage.getItem("auth_token");
     } catch {
@@ -32,6 +32,11 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // keep axios in-memory token in sync with state
+  useEffect(() => {
+    setAccessToken(token || null);
+  }, [token]);
 
   const persistToken = useCallback((value) => {
     try {
@@ -44,6 +49,12 @@ export const AuthProvider = ({ children }) => {
       // ignore storage issues
     }
   }, []);
+
+  const setToken = useCallback((value) => {
+    setTokenState(value);
+    setAccessToken(value || null);
+    persistToken(value || null);
+  }, [persistToken]);
 
   // PUBLIC_INTERFACE
   const fetchMe = useCallback(async () => {
@@ -58,15 +69,14 @@ export const AuthProvider = ({ children }) => {
       setUser(res.data?.user || res.data || null);
       return res.data;
     } catch (e) {
+      // If /me fails (e.g., after failed refresh), clear session
       setUser(null);
-      // if token invalid, clear it
-      persistToken(null);
       setToken(null);
       return null;
     } finally {
       setLoading(false);
     }
-  }, [token, persistToken]);
+  }, [token, setToken]);
 
   // Bootstrap user on mount or when token changes
   useEffect(() => {
@@ -87,10 +97,10 @@ export const AuthProvider = ({ children }) => {
         setLoading(true);
         setError(null);
         const res = await api.post(endpoints.auth.login, { email, password });
-        const newToken = res.data?.token || res.data?.access_token;
+        const newToken =
+          res.data?.token || res.data?.access_token || res.data?.accessToken;
         if (newToken) {
           setToken(newToken);
-          persistToken(newToken);
           await fetchMe();
         } else {
           throw new Error("No token returned by server");
@@ -103,25 +113,40 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     },
-    [fetchMe, persistToken]
+    [fetchMe, setToken]
   );
 
   // PUBLIC_INTERFACE
   const logout = useCallback(() => {
     try {
-      persistToken(null);
       setToken(null);
       setUser(null);
-      // Optionally inform backend
+      // Inform backend if exists, ignore errors
       api.post(endpoints.auth.logout).catch(() => {});
     } catch {
       // ignore
+    } finally {
+      try {
+        // Redirect to login
+        const url = "/login";
+        if (window?.location?.pathname !== url) {
+          window.location.assign(url);
+        }
+      } catch {
+        // ignore redirect failures
+      }
     }
-  }, [persistToken]);
+  }, [setToken]);
+
+  // PUBLIC_INTERFACE
+  const getUserRole = useCallback(() => {
+    /** Returns primary role for RBAC convenience. */
+    return user?.roles?.[0] || null;
+  }, [user]);
 
   const value = useMemo(
-    () => ({ user, token, loading, error, login, logout, fetchMe }),
-    [user, token, loading, error, login, logout, fetchMe]
+    () => ({ user, token, loading, error, login, logout, fetchMe, getUserRole }),
+    [user, token, loading, error, login, logout, fetchMe, getUserRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
